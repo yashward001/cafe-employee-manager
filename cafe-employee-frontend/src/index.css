@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global theme */
+body {
+  @apply bg-gray-50 text-gray-900 font-sans;
+}
+
+/* Card container */
+.card {
+  @apply rounded-2xl bg-white p-6 shadow-lg transition hover:shadow-xl;
+}
+
+/* Buttons */
+.btn {
+  @apply px-5 py-2.5 rounded-lg font-medium transition;
+}
+.btn-primary {
+  @apply bg-blue-600 text-white hover:bg-blue-700;
+}
+.btn-danger {
+  @apply bg-red-600 text-white hover:bg-red-700;
+}
+.btn-secondary {
+  @apply bg-gray-200 hover:bg-gray-300;
+}
+
+/* Input fields */
+.input {
+  @apply w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none;
+}
+
+/* Table styling */
+.table {
+  @apply w-full border-collapse text-sm;
+}
+.table th {
+  @apply bg-gray-100 text-gray-700 px-4 py-3 text-left;
+}
+.table td {
+  @apply px-4 py-3 border-t;
+}
