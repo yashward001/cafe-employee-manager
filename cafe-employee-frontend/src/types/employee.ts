@@ -14,6 +14,6 @@ export interface EmployeePayload {
   email: string;
   phone: string;
   gender: "Male" | "Female";
-  startDate: string | null;
+  startDate: string;
   cafeId?: string | null;
 }

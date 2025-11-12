@@ -15,9 +15,9 @@ export const EmployeeForm = ({ initial, onSubmit, onCancel }: Props) => {
     name: "",
     email: "",
     phone: "",
-    gender: "U",
-    startDate: new Date().toISOString(),
-    cafeId: "",
+    gender: "Male",
+    startDate: new Date().toISOString().slice(0, 10),
+    cafeId: null,
   });
 
   const [cafes, setCafes] = useState<Cafe[]>([]);
@@ -38,9 +38,11 @@ export const EmployeeForm = ({ initial, onSubmit, onCancel }: Props) => {
         email: (initial as any).email ?? (initial as any).email_address ?? "",
         phone:
           (initial as any).phone ?? (initial as any).phone_number ?? "",
-        gender: (initial as any).gender ?? "U",
+        gender: (initial as any).gender ?? "Male",
         startDate:
-          (initial as any).startDate ?? new Date().toISOString(),
+          (initial as any).startDate
+            ? new Date((initial as any).startDate).toISOString().slice(0, 10)
+            : new Date().toISOString().slice(0, 10),
         cafeId:
           (initial as any).cafeId ??
           cafes.find(
@@ -48,7 +50,7 @@ export const EmployeeForm = ({ initial, onSubmit, onCancel }: Props) => {
               c.name.toLowerCase() ===
               ((initial as any).cafe ?? "").toLowerCase()
           )?.id ??
-          "",
+          null,
       });
     }
   }, [initial, cafes]);
@@ -71,9 +73,9 @@ export const EmployeeForm = ({ initial, onSubmit, onCancel }: Props) => {
       name: "",
       email: "",
       phone: "",
-      gender: "U",
-      startDate: new Date().toISOString(),
-      cafeId: "",
+      gender: "Male",
+      startDate: new Date().toISOString().slice(0, 10),
+      cafeId: null,
     });
   };
 
@@ -125,10 +127,10 @@ export const EmployeeForm = ({ initial, onSubmit, onCancel }: Props) => {
         name="gender"
         value={form.gender}
         onChange={handle}
+        required
       >
-        <option value="U">Unspecified</option>
-        <option value="M">Male</option>
-        <option value="F">Female</option>
+        <option value="Male">Male</option>
+        <option value="Female">Female</option>
       </select>
 
       {/* 🔹 Start Date */}
@@ -137,15 +139,16 @@ export const EmployeeForm = ({ initial, onSubmit, onCancel }: Props) => {
         placeholder="Start Date"
         name="startDate"
         type="date"
-        value={form.startDate.slice(0, 10)}
+        value={form.startDate}
         onChange={handle}
+        required
       />
 
       {/* 🔹 Café dropdown */}
       <select
         className="w-full rounded border px-3 py-2"
         name="cafeId"
-        value={form.cafeId}
+        value={form.cafeId || ""}
         onChange={handle}
       >
         <option value="">No Café Assigned</option>
