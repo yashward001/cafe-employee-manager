@@ -1,0 +1,2072 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+# File Summary
+
+## Purpose
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+
+## File Format
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  a. A header with the file path (## File: path/to/file)
+  b. The full contents of the file in a code block
+
+## Usage Guidelines
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+
+## Notes
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+
+# Directory Structure
+```
+cafe-employee-api/
+  prisma/
+    schema.prisma
+    seed.ts
+  src/
+    api/
+      controllers/
+        cafe.controller.ts
+        employee.controller.ts
+      middlewares/
+        asyncHandler.ts
+        errorHandler.ts
+      routes/
+        cafe.routes.ts
+        employee.routes.ts
+        index.ts
+    application/
+      commands/
+        cafe.commands.ts
+        employee.commands.ts
+      queries/
+        cafe.queries.ts
+        employee.queries.ts
+    config/
+      prisma.ts
+    utils/
+      date.ts
+      validators.ts
+    index.ts
+  .env.example
+  docker-compose.test.yml
+  Dockerfile
+  package.json
+  README.md
+  start.sh
+  tsconfig.json
+cafe-employee-frontend/
+  public/
+    vite.svg
+  src/
+    components/
+      CafeForm.tsx
+      EmployeeForm.tsx
+      Navbar.tsx
+      Spinner.tsx
+    pages/
+      CafesPage.tsx
+      EmployeesPage.tsx
+      HomePage.tsx
+    router/
+      AppRouter.tsx
+    services/
+      api.ts
+      cafeService.ts
+      employeeService.ts
+    types/
+      cafe.ts
+      employee.ts
+    App.tsx
+    index.css
+    main.tsx
+  .gitignore
+  eslint.config.js
+  index.html
+  netlify.toml
+  package.json
+  postcss.config.js
+  README.md
+  tailwind.config.js
+  tsconfig.app.json
+  tsconfig.json
+  tsconfig.node.json
+  vite.config.ts
+.gitignore
+DEPLOYMENT_GUIDE.md
+README.md
+test-api.html
+```
+
+# Files
+
+## File: cafe-employee-api/prisma/schema.prisma
+````
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["debian-openssl-3.0.x", "native"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Cafe {
+  id          String     @id @default(uuid())
+  name        String
+  description String
+  logo        String?
+  location    String
+
+  // One-to-many: a cafe has many employees
+  employees   Employee[]
+}
+
+model Employee {
+  id           String   @id @default(uuid())
+  empCode      String   @unique
+  name         String
+  email        String   @unique
+  phoneNumber  String
+  gender       String   // "Male" | "Female"
+  startDate    DateTime?
+  cafeId       String?
+  cafe         Cafe?    @relation(fields: [cafeId], references: [id], onDelete: Cascade)
+}
+````
+
+## File: cafe-employee-api/prisma/seed.ts
+````typescript
+import { PrismaClient } from "@prisma/client";
+const prisma = new PrismaClient();
+
+async function main() {
+  await prisma.employee.deleteMany();
+  await prisma.cafe.deleteMany();
+
+  const cafe1 = await prisma.cafe.create({
+    data: {
+      name: "Cafe Mocha",
+      description: "Cozy corner cafe",
+      location: "Orchard",
+      logo: "https://picsum.photos/seed/mocha/100"
+    }
+  });
+
+  const cafe2 = await prisma.cafe.create({
+    data: {
+      name: "Brew & Bite",
+      description: "Modern coffee house",
+      location: "Jurong",
+      logo: "https://picsum.photos/seed/brew/100"
+    }
+  });
+
+  const today = new Date();
+  const start1 = new Date(today);
+  start1.setDate(today.getDate() - 30);
+
+  const start2 = new Date(today);
+  start2.setDate(today.getDate() - 5);
+
+  await prisma.employee.createMany({
+    data: [
+      {
+        empCode: "UIX123456",
+        name: "Alice Tan",
+        email: "alice@example.com",
+        phoneNumber: "91234567",
+        gender: "Female",
+        startDate: start1,
+        cafeId: cafe1.id
+      },
+      {
+        empCode: "UIX987654",
+        name: "Ben Koh",
+        email: "ben@example.com",
+        phoneNumber: "81234567",
+        gender: "Male",
+        startDate: start2,
+        cafeId: cafe1.id
+      },
+      {
+        empCode: "UIX555555",
+        name: "Cheryl Lim",
+        email: "cheryl@example.com",
+        phoneNumber: "98765432",
+        gender: "Female",
+        startDate: null,
+        cafeId: null
+      }
+    ]
+  });
+
+  console.log("Seeded database with cafes and employees.");
+}
+
+main().finally(() => prisma.$disconnect());
+````
+
+## File: cafe-employee-api/src/api/controllers/cafe.controller.ts
+````typescript
+import { Request, Response } from "express";
+import { listCafes } from "../../application/queries/cafe.queries.js";
+import { createCafe, updateCafe, deleteCafe } from "../../application/commands/cafe.commands.js";
+
+export const getCafes = async (req: Request, res: Response) => {
+  const location = (req.query.location as string | undefined) || undefined;
+  const result = await listCafes(location);
+  res.json(result);
+};
+
+export const postCafe = async (req: Request, res: Response) => {
+  const cafe = await createCafe(req.body);
+  res.status(201).json(cafe);
+};
+
+export const putCafe = async (req: Request, res: Response) => {
+  const cafe = await updateCafe(req.params.id, req.body);
+  res.json(cafe);
+};
+
+export const removeCafe = async (req: Request, res: Response) => {
+  const result = await deleteCafe(req.params.id);
+  res.json(result);
+};
+````
+
+## File: cafe-employee-api/src/api/controllers/employee.controller.ts
+````typescript
+import { Request, Response } from "express";
+import { listEmployees } from "../../application/queries/employee.queries.js";
+import { createEmployee, updateEmployee, deleteEmployee } from "../../application/commands/employee.commands.js";
+
+export const getEmployees = async (req: Request, res: Response) => {
+  const cafe = (req.query.cafe as string | undefined) || undefined;
+  const result = await listEmployees(cafe);
+  res.json(result);
+};
+
+export const postEmployee = async (req: Request, res: Response) => {
+  const emp = await createEmployee(req.body);
+  res.status(201).json(emp);
+};
+
+export const putEmployee = async (req: Request, res: Response) => {
+  const emp = await updateEmployee(req.params.id, req.body);
+  res.json(emp);
+};
+
+export const removeEmployee = async (req: Request, res: Response) => {
+  const result = await deleteEmployee(req.params.id);
+  res.json(result);
+};
+````
+
+## File: cafe-employee-api/src/api/middlewares/asyncHandler.ts
+````typescript
+import { RequestHandler } from "express";
+
+export const asyncHandler = (fn: RequestHandler): RequestHandler =>
+  (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+````
+
+## File: cafe-employee-api/src/api/middlewares/errorHandler.ts
+````typescript
+import { ErrorRequestHandler } from "express";
+
+export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
+  const status = err.status || 400;
+  res.status(status).json({
+    error: err.message ?? "Unexpected error"
+  });
+};
+````
+
+## File: cafe-employee-api/src/api/routes/cafe.routes.ts
+````typescript
+import { Router } from "express";
+import { asyncHandler } from "../middlewares/asyncHandler.js";
+import { getCafes, postCafe, putCafe, removeCafe } from "../controllers/cafe.controller.js";
+
+export const cafeRouter = Router();
+
+cafeRouter.get("/", asyncHandler(getCafes));          // GET /cafes?location=
+cafeRouter.post("/", asyncHandler(postCafe));         // POST /cafes
+cafeRouter.put("/:id", asyncHandler(putCafe));        // PUT /cafes/:id
+cafeRouter.delete("/:id", asyncHandler(removeCafe));  // DELETE /cafes/:id
+````
+
+## File: cafe-employee-api/src/api/routes/employee.routes.ts
+````typescript
+import { Router } from "express";
+import { asyncHandler } from "../middlewares/asyncHandler.js";
+import { getEmployees, postEmployee, putEmployee, removeEmployee } from "../controllers/employee.controller.js";
+
+export const employeeRouter = Router();
+
+employeeRouter.get("/", asyncHandler(getEmployees));          // GET /employees?cafe=
+employeeRouter.post("/", asyncHandler(postEmployee));         // POST /employees
+employeeRouter.put("/:id", asyncHandler(putEmployee));        // PUT /employees/:id
+employeeRouter.delete("/:id", asyncHandler(removeEmployee));  // DELETE /employees/:id
+````
+
+## File: cafe-employee-api/src/api/routes/index.ts
+````typescript
+import { Router } from "express";
+import { cafeRouter } from "./cafe.routes.js";
+import { employeeRouter } from "./employee.routes.js";
+
+export const apiRouter = Router();
+
+apiRouter.use("/cafes", cafeRouter);
+apiRouter.use("/employees", employeeRouter);
+````
+
+## File: cafe-employee-api/src/application/commands/cafe.commands.ts
+````typescript
+import { prisma } from "../../config/prisma.js";
+import { z } from "zod";
+import { createCafeSchema, updateCafeSchema } from "../../utils/validators.js";
+
+export const createCafe = async (input: unknown) => {
+  const data = createCafeSchema.parse(input);
+  return prisma.cafe.create({ data });
+};
+
+export const updateCafe = async (id: string, input: unknown) => {
+  const data = updateCafeSchema.parse(input);
+  return prisma.cafe.update({ where: { id }, data });
+};
+
+// also delete all employees under the cafe (handled by cascade)
+export const deleteCafe = async (id: string) => {
+  await prisma.cafe.delete({ where: { id } });
+  return { deleted: true };
+};
+````
+
+## File: cafe-employee-api/src/application/commands/employee.commands.ts
+````typescript
+import { prisma } from "../../config/prisma.js";
+import { createEmployeeSchema, updateEmployeeSchema } from "../../utils/validators.js";
+
+// Helper to generate 'UIXXXXXXX' style emp code
+function generateEmpCode(): string {
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let suffix = "";
+  for (let i = 0; i < 7; i++) {
+    suffix += letters[Math.floor(Math.random() * letters.length)];
+  }
+  return `UI${suffix}`;
+}
+
+// Ensure an employee is only in ONE cafe: our schema already enforces single cafeId.
+// Commands below set/replace cafeId; there is no multi-assign path.
+
+export const createEmployee = async (input: unknown) => {
+  const data = createEmployeeSchema.parse(input);
+
+  // prevent duplicate email
+  const exists = await prisma.employee.findUnique({ where: { email: data.email } });
+  if (exists) throw new Error("Employee already exists with this email");
+
+  return prisma.employee.create({
+    data: {
+      empCode: generateEmpCode(),
+      name: data.name,
+      email: data.email,
+      phoneNumber: data.phoneNumber,
+      gender: data.gender,
+      startDate: data.startDate,
+      cafeId: data.cafeId ?? null
+    }
+  });
+};
+
+export const updateEmployee = async (id: string, input: unknown) => {
+  const patch = updateEmployeeSchema.parse(input);
+  return prisma.employee.update({
+    where: { id },
+    data: {
+      name: patch.name,
+      email: patch.email,
+      phoneNumber: patch.phoneNumber,
+      gender: patch.gender,
+      startDate: patch.startDate,
+      cafeId: patch.cafeId ?? undefined
+    }
+  });
+};
+
+export const deleteEmployee = async (id: string) => {
+  await prisma.employee.delete({ where: { id } });
+  return { deleted: true };
+};
+````
+
+## File: cafe-employee-api/src/application/queries/cafe.queries.ts
+````typescript
+import { prisma } from "../../config/prisma.js";
+
+export const listCafes = async (location?: string) => {
+  const where = location
+    ? { location: { equals: location, mode: "insensitive" as const } }
+    : {};
+
+  const cafes = await prisma.cafe.findMany({
+    where,
+    include: { employees: true }
+  });
+
+  // sort by highest number of employees first
+  cafes.sort((a, b) => b.employees.length - a.employees.length);
+
+  return cafes.map(c => ({
+    id: c.id,
+    name: c.name,
+    description: c.description,
+    logo: c.logo ?? null,
+    location: c.location,
+    employees: c.employees.length
+  }));
+};
+````
+
+## File: cafe-employee-api/src/application/queries/employee.queries.ts
+````typescript
+import { prisma } from "../../config/prisma.js";
+import { daysBetween } from "../../utils/date.js";
+
+export const listEmployees = async (cafeName?: string) => {
+  let where: any = {};
+  if (cafeName) {
+    const cafe = await prisma.cafe.findFirst({
+      where: { name: { equals: cafeName, mode: "insensitive" } }
+    });
+    if (!cafe) return []; // invalid cafe -> empty list
+    where.cafeId = cafe.id;
+  }
+
+  const employees = await prisma.employee.findMany({
+    where,
+    include: { cafe: true }
+  });
+
+const enriched = employees.map(e => ({
+  id: e.id,                      // ✅ real UUID (used for delete/update)
+  empCode: e.empCode,            // ✅ for display only
+  name: e.name,
+  email_address: e.email,
+  phone_number: e.phoneNumber,
+  days_worked: daysBetween(e.startDate),
+  cafe: e.cafe?.name ?? ""
+}));
+
+  // Sort by highest days worked first
+  enriched.sort((a, b) => b.days_worked - a.days_worked);
+  return enriched;
+};
+````
+
+## File: cafe-employee-api/src/config/prisma.ts
+````typescript
+import { PrismaClient } from "@prisma/client";
+export const prisma = new PrismaClient();
+````
+
+## File: cafe-employee-api/src/utils/date.ts
+````typescript
+export function daysBetween(start?: Date | null): number {
+  if (!start) return 0;
+  const ms = Date.now() - new Date(start).getTime();
+  return Math.max(0, Math.floor(ms / (1000 * 60 * 60 * 24)));
+}
+````
+
+## File: cafe-employee-api/src/utils/validators.ts
+````typescript
+import { z } from "zod";
+
+export const sgPhoneSchema = z.string().regex(/^[89]\d{7}$/, {
+  message: "Phone must start with 8 or 9 and have 8 digits"
+});
+
+export const emailSchema = z.string().email();
+
+export const genderSchema = z.enum(["Male", "Female"]);
+
+export const createCafeSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().min(1),
+  logo: z.string().url().optional().or(z.literal("").transform(() => undefined)),
+  location: z.string().min(1)
+});
+
+export const updateCafeSchema = createCafeSchema.partial();
+
+export const createEmployeeSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  email: z.string().email("Invalid email"),
+  phoneNumber: z.string().min(3, "Phone number too short"),
+  gender: z.enum(["M", "F", "U"]).default("U"),
+  startDate: z.string().optional(),
+  cafeId: z.string().uuid().nullable().optional(),
+});
+
+export const updateEmployeeSchema = createEmployeeSchema.partial();
+````
+
+## File: cafe-employee-api/src/index.ts
+````typescript
+import "dotenv/config";
+import express from "express";
+import helmet from "helmet";
+import cors from "cors"; // ✅ import cors
+import { apiRouter } from "./api/routes/index.js";
+import { errorHandler } from "./api/middlewares/errorHandler.js";
+
+const app = express();
+
+app.use(helmet());
+app.use(express.json());
+
+// ✅ Enable CORS before routes
+app.use(
+  cors({
+    origin: ["http://localhost:5173", "http://localhost:5174","https://cafe-employee-manager.netlify.app"], // Allow multiple frontend ports
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    allowedHeaders: ["Content-Type"],
+  })
+);
+
+// Health check
+app.get("/", (_req, res) => res.json({ ok: true, service: "cafe-employee-api" }));
+
+// API routes
+app.use("/api", apiRouter);
+
+// Error handler
+app.use(errorHandler);
+
+const PORT = Number(process.env.PORT || 8080);
+app.listen(PORT, () => console.log(`✅ API running on port ${PORT}`));
+````
+
+## File: cafe-employee-api/Dockerfile
+````
+# ---- Base image ----
+FROM node:20-alpine
+
+WORKDIR /app
+
+# ---- Install OpenSSL for Prisma ----
+RUN apk add --no-cache openssl
+
+# ---- Install ALL dependencies (including dev for build & seed) ----
+COPY package.json package-lock.json ./
+RUN npm ci
+
+# ---- Copy source & prisma schema ----
+COPY prisma ./prisma
+COPY . .
+
+# ---- Generate Prisma Client ----
+RUN node node_modules/prisma/build/index.js generate
+
+# ---- Build the app ----
+RUN node node_modules/typescript/bin/tsc
+
+# ---- Keep tsx for seeding at runtime ----
+# Note: We keep dev deps to ensure tsx/esbuild work correctly for seeding
+
+# ---- Expose API port ----
+EXPOSE 8080
+
+# ---- Copy startup script ----
+COPY start.sh ./
+RUN chmod +x start.sh
+
+# ---- Start server ----
+CMD ["./start.sh"]
+````
+
+## File: cafe-employee-api/package.json
+````json
+{
+  "name": "cafe-employee-api",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "prisma:generate": "prisma generate",
+    "prisma:push": "prisma db push",
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.19.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "helmet": "^7.0.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.5",
+    "@types/node": "^24.10.0",
+    "prisma": "^5.19.1",
+    "tsx": "^4.16.2",
+    "typescript": "^5.6.3"
+  }
+}
+````
+
+## File: cafe-employee-api/start.sh
+````bash
+#!/bin/sh
+set -e
+
+echo "🔧 Running database migrations..."
+node node_modules/prisma/build/index.js db push --accept-data-loss
+
+echo "📊 Seeding database (if needed)..."
+node node_modules/tsx/dist/cli.mjs prisma/seed.ts || echo "⚠️ Seed failed or already seeded, continuing..."
+
+echo "🚀 Starting server..."
+npm start
+````
+
+## File: cafe-employee-api/tsconfig.json
+````json
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "CommonJS",
+    "rootDir": "src",
+    "outDir": "dist",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true
+  },
+  "include": ["src"]
+}
+````
+
+## File: cafe-employee-frontend/public/vite.svg
+````
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" class="iconify iconify--logos" width="31.88" height="32" preserveAspectRatio="xMidYMid meet" viewBox="0 0 256 257"><defs><linearGradient id="IconifyId1813088fe1fbc01fb466" x1="-.828%" x2="57.636%" y1="7.652%" y2="78.411%"><stop offset="0%" stop-color="#41D1FF"></stop><stop offset="100%" stop-color="#BD34FE"></stop></linearGradient><linearGradient id="IconifyId1813088fe1fbc01fb467" x1="43.376%" x2="50.316%" y1="2.242%" y2="89.03%"><stop offset="0%" stop-color="#FFEA83"></stop><stop offset="8.333%" stop-color="#FFDD35"></stop><stop offset="100%" stop-color="#FFA800"></stop></linearGradient></defs><path fill="url(#IconifyId1813088fe1fbc01fb466)" d="M255.153 37.938L134.897 252.976c-2.483 4.44-8.862 4.466-11.382.048L.875 37.958c-2.746-4.814 1.371-10.646 6.827-9.67l120.385 21.517a6.537 6.537 0 0 0 2.322-.004l117.867-21.483c5.438-.991 9.574 4.796 6.877 9.62Z"></path><path fill="url(#IconifyId1813088fe1fbc01fb467)" d="M185.432.063L96.44 17.501a3.268 3.268 0 0 0-2.634 3.014l-5.474 92.456a3.268 3.268 0 0 0 3.997 3.378l24.777-5.718c2.318-.535 4.413 1.507 3.936 3.838l-7.361 36.047c-.495 2.426 1.782 4.5 4.151 3.78l15.304-4.649c2.372-.72 4.652 1.36 4.15 3.788l-11.698 56.621c-.732 3.542 3.979 5.473 5.943 2.437l1.313-2.028l72.516-144.72c1.215-2.423-.88-5.186-3.54-4.672l-25.505 4.922c-2.396.462-4.435-1.77-3.759-4.114l16.646-57.705c.677-2.35-1.37-4.583-3.769-4.113Z"></path></svg>
+````
+
+## File: cafe-employee-frontend/src/components/CafeForm.tsx
+````typescript
+import { useEffect, useState } from "react";
+import type { Cafe, CafePayload } from "../types/cafe";
+
+type Props = {
+  initial?: Cafe | null;
+  onSubmit: (data: CafePayload) => Promise<void>;
+  onCancel?: () => void;
+};
+
+export const CafeForm = ({ initial, onSubmit, onCancel }: Props) => {
+  const [form, setForm] = useState<CafePayload>({
+    name: "",
+    description: "",
+    logo: "",
+    location: "",
+  });
+
+  useEffect(() => {
+    if (initial) {
+      const { name, description, logo, location } = initial;
+      setForm({ name, description, logo, location });
+    }
+  }, [initial]);
+
+  const handle = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await onSubmit(form);
+  };
+
+  return (
+    <form onSubmit={submit} className="space-y-3">
+      <input
+        className="w-full rounded border px-3 py-2"
+        placeholder="Name"
+        name="name" value={form.name} onChange={handle} required
+      />
+      <input
+        className="w-full rounded border px-3 py-2"
+        placeholder="Logo URL"
+        name="logo" value={form.logo} onChange={handle}
+      />
+      <input
+        className="w-full rounded border px-3 py-2"
+        placeholder="Location"
+        name="location" value={form.location} onChange={handle}
+      />
+      <textarea
+        className="w-full rounded border px-3 py-2"
+        placeholder="Description"
+        name="description" value={form.description} onChange={handle}
+      />
+      <div className="flex gap-2">
+        <button className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700" type="submit">
+          {initial ? "Update" : "Create"}
+        </button>
+        {onCancel && (
+          <button className="rounded bg-gray-200 px-4 py-2" type="button" onClick={onCancel}>
+            Cancel
+          </button>
+        )}
+      </div>
+    </form>
+  );
+};
+````
+
+## File: cafe-employee-frontend/src/components/EmployeeForm.tsx
+````typescript
+import { useEffect, useState } from "react";
+import type { Employee, EmployeePayload } from "../types/employee";
+import type { Cafe } from "../types/cafe";
+import { getCafes } from "../services/cafeService";
+
+type Props = {
+  initial?: Employee | null;
+  onSubmit: (data: EmployeePayload) => Promise<void>;
+  onCancel?: () => void;
+};
+
+export const EmployeeForm = ({ initial, onSubmit, onCancel }: Props) => {
+  const [form, setForm] = useState<EmployeePayload>({
+    id: "",
+    name: "",
+    email: "",
+    phone: "",
+    gender: "Male",
+    startDate: new Date().toISOString().slice(0, 10),
+    cafeId: null,
+  });
+
+  const [cafes, setCafes] = useState<Cafe[]>([]);
+
+  // 🔹 Fetch cafes for dropdown
+  useEffect(() => {
+    getCafes()
+      .then(setCafes)
+      .catch((err) => console.error("Failed to load cafes:", err));
+  }, []);
+
+  // 🔹 Pre-fill form when editing an existing employee
+  useEffect(() => {
+    if (initial) {
+      setForm({
+        id: initial.id ?? "",
+        name: initial.name ?? "",
+        email: (initial as any).email ?? (initial as any).email_address ?? "",
+        phone:
+          (initial as any).phone ?? (initial as any).phone_number ?? "",
+        gender: (initial as any).gender ?? "Male",
+        startDate:
+          (initial as any).startDate
+            ? new Date((initial as any).startDate).toISOString().slice(0, 10)
+            : new Date().toISOString().slice(0, 10),
+        cafeId:
+          (initial as any).cafeId ??
+          cafes.find(
+            (c) =>
+              c.name.toLowerCase() ===
+              ((initial as any).cafe ?? "").toLowerCase()
+          )?.id ??
+          null,
+      });
+    }
+  }, [initial, cafes]);
+
+  // 🔹 Handle input changes
+  const handle = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // 🔹 Submit form
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await onSubmit(form);
+    // Reset form after submission
+    setForm({
+      id: "",
+      name: "",
+      email: "",
+      phone: "",
+      gender: "Male",
+      startDate: new Date().toISOString().slice(0, 10),
+      cafeId: null,
+    });
+  };
+
+  return (
+    <form onSubmit={submit} className="space-y-3">
+      {/* Only show ID field when creating new employee */}
+      {!initial && (
+        <input
+          className="w-full rounded border px-3 py-2"
+          placeholder="Employee ID (e.g., UIX123456)"
+          name="id"
+          value={form.id}
+          onChange={handle}
+          required
+        />
+      )}
+
+      <input
+        className="w-full rounded border px-3 py-2"
+        placeholder="Name"
+        name="name"
+        value={form.name}
+        onChange={handle}
+        required
+      />
+
+      <input
+        className="w-full rounded border px-3 py-2"
+        placeholder="Email"
+        name="email"
+        type="email"
+        value={form.email}
+        onChange={handle}
+        required
+      />
+
+      <input
+        className="w-full rounded border px-3 py-2"
+        placeholder="Phone"
+        name="phone"
+        value={form.phone}
+        onChange={handle}
+        required
+      />
+
+      {/* 🔹 Gender selection */}
+      <select
+        className="w-full rounded border px-3 py-2"
+        name="gender"
+        value={form.gender}
+        onChange={handle}
+        required
+      >
+        <option value="Male">Male</option>
+        <option value="Female">Female</option>
+      </select>
+
+      {/* 🔹 Start Date */}
+      <input
+        className="w-full rounded border px-3 py-2"
+        placeholder="Start Date"
+        name="startDate"
+        type="date"
+        value={form.startDate}
+        onChange={handle}
+        required
+      />
+
+      {/* 🔹 Café dropdown */}
+      <select
+        className="w-full rounded border px-3 py-2"
+        name="cafeId"
+        value={form.cafeId || ""}
+        onChange={handle}
+      >
+        <option value="">No Café Assigned</option>
+        {cafes.map((cafe) => (
+          <option key={cafe.id} value={cafe.id}>
+            {cafe.name} — {cafe.location}
+          </option>
+        ))}
+      </select>
+
+      <div className="flex gap-2">
+        <button
+          className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+          type="submit"
+        >
+          {initial ? "Update" : "Create"}
+        </button>
+
+        {onCancel && (
+          <button
+            className="rounded bg-gray-200 px-4 py-2"
+            type="button"
+            onClick={onCancel}
+          >
+            Cancel
+          </button>
+        )}
+      </div>
+    </form>
+  );
+};
+````
+
+## File: cafe-employee-frontend/src/components/Navbar.tsx
+````typescript
+import { Link, useLocation } from "react-router-dom";
+
+export const Navbar = () => {
+  const { pathname } = useLocation();
+  const isActive = (p: string) =>
+    pathname === p ? "bg-gray-900 text-white" : "text-gray-700 hover:bg-gray-200";
+
+  return (
+    <header className="bg-white border-b">
+      <div className="mx-auto max-w-6xl px-4 py-3 flex items-center justify-between">
+        <Link to="/" className="font-semibold text-lg">☕ Cafe Employee Dashboard</Link>
+        <nav className="flex gap-2">
+          <Link className={`px-3 py-1.5 rounded-md ${isActive("/")}`} to="/">Home</Link>
+          <Link className={`px-3 py-1.5 rounded-md ${isActive("/cafes")}`} to="/cafes">Cafes</Link>
+          <Link className={`px-3 py-1.5 rounded-md ${isActive("/employees")}`} to="/employees">Employees</Link>
+        </nav>
+      </div>
+    </header>
+  );
+};
+````
+
+## File: cafe-employee-frontend/src/components/Spinner.tsx
+````typescript
+export const Spinner = () => (
+  <div className="py-12 text-center text-sm text-gray-500">Loading…</div>
+);
+````
+
+## File: cafe-employee-frontend/src/pages/CafesPage.tsx
+````typescript
+import { useEffect, useState } from "react";
+import type { Cafe, CafePayload } from "../types/cafe";
+import { getCafes, createCafe, updateCafe, deleteCafe } from "../services/cafeService";
+import { CafeForm } from "../components/CafeForm";
+import { Spinner } from "../components/Spinner";
+import { Coffee } from "lucide-react";
+
+export const CafesPage = () => {
+  const [cafes, setCafes] = useState<Cafe[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<Cafe | null>(null);
+  const [locationFilter, setLocationFilter] = useState("");
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const data = await getCafes(locationFilter || undefined);
+      setCafes(data);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { load(); }, []); // initial
+
+  const onCreate = async (payload: CafePayload) => {
+    await createCafe(payload);
+    setEditing(null);
+    await load();
+  };
+
+  const onUpdate = async (payload: CafePayload) => {
+    if (!editing) return;
+    await updateCafe(editing.id, payload);
+    setEditing(null);
+    await load();
+  };
+
+  const onDelete = async (id: string) => {
+    if (!confirm("Delete this cafe?")) return;
+    await deleteCafe(id);
+    await load();
+  };
+
+  const onFilter = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await load();
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+        <h1 className="text-3xl font-bold flex items-center gap-3 mb-6">
+  <Coffee size={36} className="text-blue-600" />
+  Cafes
+</h1>
+        <form onSubmit={onFilter} className="flex gap-2">
+          <input
+            className="rounded border px-3 py-2"
+            placeholder="Filter by location (e.g., Orchard)"
+            value={locationFilter}
+            onChange={(e) => setLocationFilter(e.target.value)}
+          />
+          <button className="rounded bg-gray-900 text-white px-4">Apply</button>
+        </form>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="rounded-lg border bg-white p-4">
+          <h2 className="font-medium mb-3">{editing ? "Edit Cafe" : "Create Cafe"}</h2>
+          <CafeForm
+            initial={editing}
+            onSubmit={editing ? onUpdate : onCreate}
+            onCancel={() => setEditing(null)}
+          />
+        </div>
+
+        <div className="rounded-lg border bg-white p-4">
+          <h2 className="font-medium mb-3">All Cafes</h2>
+          {loading ? <Spinner /> : (
+            <ul className="divide-y">
+              {cafes.map((c) => (
+                <li key={c.id} className="py-3 flex items-center gap-4">
+                  <img src={c.logo} className="h-12 w-12 rounded-full object-cover" alt={c.name} />
+                  <div className="flex-1">
+                    <div className="font-semibold">{c.name}</div>
+                    <div className="text-sm text-gray-600">{c.location} · {c.employees} employees</div>
+                    <div className="text-sm text-gray-500">{c.description}</div>
+                  </div>
+                  <div className="flex gap-2">
+                    <button className="rounded bg-blue-600 text-white px-3 py-1"
+                      onClick={() => setEditing(c)}>Edit</button>
+                    <button className="rounded bg-red-600 text-white px-3 py-1"
+                      onClick={() => onDelete(c.id)}>Delete</button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+````
+
+## File: cafe-employee-frontend/src/pages/EmployeesPage.tsx
+````typescript
+import { useEffect, useMemo, useState } from "react";
+import type { Employee, EmployeePayload } from "../types/employee";
+import { getEmployees, createEmployee, updateEmployee, deleteEmployee } from "../services/employeeService";
+import { EmployeeForm } from "../components/EmployeeForm";
+import { Spinner } from "../components/Spinner";
+import toast from "react-hot-toast";
+import { Users } from "lucide-react";
+
+export const EmployeesPage = () => {
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<Employee | null>(null);
+  const [cafeFilter, setCafeFilter] = useState("");
+
+const load = async () => {
+  setLoading(true);
+  try {
+    const data = await getEmployees(cafeFilter || undefined);
+
+    // Map backend response to match frontend types
+    const mapped = data.map((e: any) => ({
+      id: e.id, // ✅ UUID from backend (used for delete/update)
+      empCode: e.empCode, // ✅ Human-readable employee code
+      name: e.name,
+      email_address: e.email_address ?? e.email,
+      phone_number: e.phone_number ?? e.phoneNumber,
+      days_worked: e.days_worked ?? e.daysWorked ?? 0,
+      cafe: e.cafe ?? e.cafeName ?? null,
+    }));
+
+    setEmployees(mapped);
+  } finally {
+    setLoading(false);
+  }
+};
+
+  useEffect(() => { load(); }, []); // initial
+
+const onCreate = async (payload: EmployeePayload) => {
+  try {
+    await createEmployee(payload);
+    toast.success("✅ Employee created successfully!");
+    setEditing(null);
+    await load();
+  } catch (err) {
+    toast.error("❌ Failed to create employee.");
+  }
+};
+
+const onUpdate = async (payload: EmployeePayload) => {
+  if (!editing) return;
+  try {
+    await updateEmployee(editing.id!, payload);
+    toast.success("✅ Employee updated successfully!");
+    setEditing(null);
+    await load();
+  } catch (err) {
+    toast.error("❌ Failed to update employee.");
+  }
+};
+
+const onDelete = async (id: string) => {
+  if (!confirm("Are you sure you want to delete this employee?")) return;
+  try {
+    await deleteEmployee(id);
+    toast.success("🗑️ Employee deleted!");
+    await load();
+  } catch {
+    toast.error("❌ Failed to delete employee.");
+  }
+};
+  const cafes = useMemo(() => {
+    const s = new Set<string>();
+    employees.forEach(e => { if (e.cafe) s.add(e.cafe); });
+    return Array.from(s).sort();
+  }, [employees]);
+
+  const onFilter = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await load();
+  };
+
+  return (
+    <div className="space-y-10">
+  <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+    <h1 className="text-3xl font-bold flex items-center gap-3 mb-6">
+  <Users size={36} className="text-blue-600" />
+  Employees
+</h1>
+
+    <form onSubmit={onFilter} className="flex gap-2">
+      <input
+        className="input"
+        placeholder="🔍 Filter by cafe name (e.g., Cafe Mocha)"
+        value={cafeFilter}
+        onChange={(e) => setCafeFilter(e.target.value)}
+        list="cafes-suggestions"
+      />
+      <datalist id="cafes-suggestions">
+        {cafes.map((c) => (
+          <option key={c} value={c} />
+        ))}
+      </datalist>
+      <button className="btn btn-primary">Apply</button>
+    </form>
+  </div>
+
+  <div className="grid gap-6 md:grid-cols-2">
+    {/* Left: Form */}
+    <div className="card">
+      <h2 className="text-xl font-semibold mb-4">
+        {editing ? "✏️ Edit Employee" : "➕ Create Employee"}
+      </h2>
+      <EmployeeForm
+        initial={editing}
+        onSubmit={editing ? onUpdate : onCreate}
+        onCancel={() => setEditing(null)}
+      />
+    </div>
+
+    {/* Right: Table */}
+    <div className="card overflow-x-auto">
+      <h2 className="text-xl font-semibold mb-4">📋 All Employees</h2>
+      {loading ? (
+        <Spinner />
+      ) : (
+        <table className="table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Phone</th>
+              <th>Days</th>
+              <th>Cafe</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {employees.map((e) => (
+              <tr key={e.id} className="border-t">
+                <td className="font-mono text-xs">{e.id}</td>
+                <td>{e.name}</td>
+                <td>{e.email_address}</td>
+                <td>{e.phone_number}</td>
+                <td>{e.days_worked}</td>
+                <td>{e.cafe || "—"}</td>
+                <td>
+                  <div className="flex gap-2">
+                    <button
+                      className="btn btn-primary text-xs"
+                      onClick={() => setEditing(e)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="btn btn-danger text-xs"
+                      onClick={() => onDelete(e.id)}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  </div>
+</div>
+  );
+};
+````
+
+## File: cafe-employee-frontend/src/pages/HomePage.tsx
+````typescript
+import { Link } from "react-router-dom";
+
+export const HomePage = () => (
+  <div className="text-center py-20">
+    <h1 className="text-4xl font-bold mb-4 text-gray-800">
+      ☕ Cafe Employee Dashboard
+    </h1>
+    <p className="text-gray-600 mb-8">
+      Manage cafes and employees connected to your Node + Prisma backend.
+    </p>
+    <div className="flex justify-center gap-4">
+      <Link
+        to="/cafes"
+        className="rounded bg-gray-900 text-white px-5 py-2 hover:bg-black"
+      >
+        View Cafes
+      </Link>
+      <Link
+        to="/employees"
+        className="rounded bg-blue-600 text-white px-5 py-2 hover:bg-blue-700"
+      >
+        View Employees
+      </Link>
+    </div>
+  </div>
+);
+````
+
+## File: cafe-employee-frontend/src/router/AppRouter.tsx
+````typescript
+import { Routes, Route } from "react-router-dom";
+import { HomePage } from "../pages/HomePage";
+import { CafesPage } from "../pages/CafesPage";
+import { EmployeesPage } from "../pages/EmployeesPage";
+
+export const AppRouter = () => (
+  <Routes>
+    <Route path="/" element={<HomePage />} />
+    <Route path="/cafes" element={<CafesPage />} />
+    <Route path="/employees" element={<EmployeesPage />} />
+  </Routes>
+);
+````
+
+## File: cafe-employee-frontend/src/services/api.ts
+````typescript
+import axios from "axios";
+
+export const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL || "http://localhost:8080/api",
+  headers: { "Content-Type": "application/json" },
+});
+````
+
+## File: cafe-employee-frontend/src/services/cafeService.ts
+````typescript
+import { api } from "./api";
+import type { Cafe, CafePayload } from "../types/cafe";
+
+export const getCafes = async (location?: string): Promise<Cafe[]> => {
+  const res = await api.get("/cafes", { params: { location } });
+  return res.data;
+};
+
+export const createCafe = async (data: CafePayload): Promise<Cafe> => {
+  const res = await api.post("/cafes", data);
+  return res.data;
+};
+
+export const updateCafe = async (id: string, data: CafePayload): Promise<Cafe> => {
+  const res = await api.put(`/cafes/${id}`, data);
+  return res.data;
+};
+
+export const deleteCafe = async (id: string): Promise<{ ok: boolean }> => {
+  const res = await api.delete(`/cafes/${id}`);
+  return res.data;
+};
+````
+
+## File: cafe-employee-frontend/src/services/employeeService.ts
+````typescript
+import { api } from "./api";
+import type { Employee, EmployeePayload } from "../types/employee";
+
+// ✅ Fetch all employees (optionally filtered by cafe)
+export const getEmployees = async (cafe?: string): Promise<Employee[]> => {
+  const res = await api.get("/employees", { params: { cafe } });
+  return res.data;
+};
+
+// ✅ Create employee — map frontend fields to backend expectations
+
+export const createEmployee = async (data: EmployeePayload) => {
+  // Map frontend form fields -> backend expected keys
+  const payload = {
+    empCode: data.id,                        // Employee code
+    name: data.name,
+    email: data.email,
+    phoneNumber: data.phone,
+    gender: data.gender === "Male" ? "M" : "F",  // Backend expects M/F
+    startDate: data.startDate ? new Date(data.startDate).toISOString() : null,
+    cafeId: data.cafeId || null              // null or UUID of an existing cafe
+  };
+
+  console.log("📤 Sending employee payload:", payload);
+
+  const res = await api.post("/employees", payload);
+  return res.data;
+};
+
+// ✅ Update employee
+export const updateEmployee = async (id: string, data: EmployeePayload): Promise<Employee> => {
+  const payload = {
+    name: data.name,
+    email: data.email,
+    phoneNumber: data.phone,
+    gender: data.gender === "Male" ? "M" : "F",  // Backend expects M/F
+    startDate: data.startDate ? new Date(data.startDate).toISOString() : null,
+    cafeId: data.cafeId || null,
+  };
+  const res = await api.put(`/employees/${id}`, payload);
+  return res.data;
+};
+
+// ✅ Delete employee
+export const deleteEmployee = async (id: string): Promise<{ ok: boolean }> => {
+  const res = await api.delete(`/employees/${id}`);
+  return res.data;
+};
+````
+
+## File: cafe-employee-frontend/src/types/cafe.ts
+````typescript
+// src/types/cafe.ts
+export interface Cafe {
+  id: string;
+  name: string;
+  description: string;
+  logo: string;
+  location: string;
+  employees: number;
+}
+
+export interface CafePayload {
+  name: string;
+  description: string;
+  logo: string;
+  location: string;
+}
+````
+
+## File: cafe-employee-frontend/src/types/employee.ts
+````typescript
+export interface Employee {
+  id: string;
+  empCode: string; 
+  name: string;
+  email_address: string;
+  phone_number: string;
+  days_worked: number;
+  cafe: string | null;
+}
+
+export interface EmployeePayload {
+  id?: string;
+  name: string;
+  email: string;
+  phone: string;
+  gender: "Male" | "Female";
+  startDate: string;
+  cafeId?: string | null;
+}
+````
+
+## File: cafe-employee-frontend/src/App.tsx
+````typescript
+import { BrowserRouter } from "react-router-dom";
+import { AppRouter } from "./router/AppRouter";
+import { Toaster } from "react-hot-toast";
+import { Coffee, Users, Home } from "lucide-react";
+
+export const App = () => {
+  return (
+    <BrowserRouter>
+      <div className="min-h-screen flex flex-col bg-gray-50 text-gray-900">
+        {/* ✅ Header always visible */}
+        <header className="bg-gray-900 text-white py-4 shadow-md">
+          <div className="container mx-auto px-6 flex justify-between items-center">
+            <h1 className="text-2xl font-bold tracking-wide flex items-center gap-2">
+              ☕ Cafe Employee Manager
+            </h1>
+
+            <nav className="flex gap-6 text-sm items-center">
+  <a href="/" className="flex items-center gap-2 hover:text-blue-400 transition">
+    <Home size={20} /> Home
+  </a>
+  <a href="/cafes" className="flex items-center gap-2 hover:text-blue-400 transition">
+    <Coffee size={20} /> Cafes
+  </a>
+  <a href="/employees" className="flex items-center gap-2 hover:text-blue-400 transition">
+    <Users size={20} /> Employees
+  </a>
+</nav>
+          </div>
+        </header>
+
+        {/* ✅ Main content area */}
+        <main className="flex-1 container mx-auto px-6 py-10">
+          <AppRouter />
+        </main>
+
+        {/* ✅ Footer */}
+        <footer className="bg-gray-100 text-center py-4 text-gray-600 text-sm">
+          Made with ❤️ by Yash
+        </footer>
+
+        {/* ✅ Toasts */}
+        <Toaster
+          position="bottom-right"
+          toastOptions={{
+            style: {
+              fontSize: "15px",
+              borderRadius: "10px",
+              padding: "10px 15px",
+            },
+            success: {
+              iconTheme: { primary: "#10B981", secondary: "white" },
+            },
+            error: { iconTheme: { primary: "#EF4444", secondary: "white" } },
+          }}
+        />
+      </div>
+    </BrowserRouter>
+  );
+};
+````
+
+## File: cafe-employee-frontend/src/index.css
+````css
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Global theme */
+body {
+  @apply bg-gray-50 text-gray-900 font-sans;
+}
+
+/* Card container */
+.card {
+  @apply rounded-2xl bg-white p-6 shadow-lg transition hover:shadow-xl;
+}
+
+/* Buttons */
+.btn {
+  @apply px-5 py-2.5 rounded-lg font-medium transition;
+}
+.btn-primary {
+  @apply bg-blue-600 text-white hover:bg-blue-700;
+}
+.btn-danger {
+  @apply bg-red-600 text-white hover:bg-red-700;
+}
+.btn-secondary {
+  @apply bg-gray-200 hover:bg-gray-300;
+}
+
+/* Input fields */
+.input {
+  @apply w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none;
+}
+
+/* Table styling */
+.table {
+  @apply w-full border-collapse text-sm;
+}
+.table th {
+  @apply bg-gray-100 text-gray-700 px-4 py-3 text-left;
+}
+.table td {
+  @apply px-4 py-3 border-t;
+}
+````
+
+## File: cafe-employee-frontend/src/main.tsx
+````typescript
+import React from "react";
+import ReactDOM from "react-dom/client";
+import "./index.css";
+import { App } from "./App";
+
+ReactDOM.createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+````
+
+## File: cafe-employee-frontend/.gitignore
+````
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+````
+
+## File: cafe-employee-frontend/eslint.config.js
+````javascript
+import js from '@eslint/js'
+import globals from 'globals'
+import reactHooks from 'eslint-plugin-react-hooks'
+import reactRefresh from 'eslint-plugin-react-refresh'
+import tseslint from 'typescript-eslint'
+import { defineConfig, globalIgnores } from 'eslint/config'
+
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      js.configs.recommended,
+      tseslint.configs.recommended,
+      reactHooks.configs['recommended-latest'],
+      reactRefresh.configs.vite,
+    ],
+    languageOptions: {
+      ecmaVersion: 2020,
+      globals: globals.browser,
+    },
+  },
+])
+````
+
+## File: cafe-employee-frontend/index.html
+````html
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>cafe-employee-frontend</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+````
+
+## File: cafe-employee-frontend/netlify.toml
+````toml
+[build]
+  publish = "dist"
+  command = "npm run build"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+````
+
+## File: cafe-employee-frontend/package.json
+````json
+{
+  "name": "cafe-employee-frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "axios": "^1.13.2",
+    "framer-motion": "^12.23.24",
+    "lucide-react": "^0.553.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-hot-toast": "^2.6.0",
+    "react-router-dom": "^7.9.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.36.0",
+    "@types/node": "^24.6.0",
+    "@types/react": "^19.1.16",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^5.0.4",
+    "autoprefixer": "^10.4.21",
+    "eslint": "^9.36.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.22",
+    "globals": "^16.4.0",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.18",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.45.0",
+    "vite": "^7.1.7"
+  }
+}
+````
+
+## File: cafe-employee-frontend/postcss.config.js
+````javascript
+export default {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+};
+````
+
+## File: cafe-employee-frontend/README.md
+````markdown
+# React + TypeScript + Vite
+
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+
+Currently, two official plugins are available:
+
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+
+## React Compiler
+
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+
+## Expanding the ESLint configuration
+
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+
+```js
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+
+      // Remove tseslint.configs.recommended and replace with this
+      tseslint.configs.recommendedTypeChecked,
+      // Alternatively, use this for stricter rules
+      tseslint.configs.strictTypeChecked,
+      // Optionally, add this for stylistic rules
+      tseslint.configs.stylisticTypeChecked,
+
+      // Other configs...
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
+```
+
+You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
+
+export default defineConfig([
+  globalIgnores(['dist']),
+  {
+    files: ['**/*.{ts,tsx}'],
+    extends: [
+      // Other configs...
+      // Enable lint rules for React
+      reactX.configs['recommended-typescript'],
+      // Enable lint rules for React DOM
+      reactDom.configs.recommended,
+    ],
+    languageOptions: {
+      parserOptions: {
+        project: ['./tsconfig.node.json', './tsconfig.app.json'],
+        tsconfigRootDir: import.meta.dirname,
+      },
+      // other options...
+    },
+  },
+])
+```
+````
+
+## File: cafe-employee-frontend/tailwind.config.js
+````javascript
+export default {
+  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}"],
+  theme: { extend: {} },
+  plugins: [],
+};
+````
+
+## File: cafe-employee-frontend/tsconfig.app.json
+````json
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "types": ["vite/client"],
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "jsx": "react-jsx",
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true
+  },
+  "include": ["src"]
+}
+````
+
+## File: cafe-employee-frontend/tsconfig.json
+````json
+{
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.app.json" },
+    { "path": "./tsconfig.node.json" }
+  ]
+}
+````
+
+## File: cafe-employee-frontend/tsconfig.node.json
+````json
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+    "target": "ES2023",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "types": ["node"],
+    "skipLibCheck": true,
+
+    /* Bundler mode */
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+
+    /* Linting */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "erasableSyntaxOnly": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true
+  },
+  "include": ["vite.config.ts"]
+}
+````
+
+## File: cafe-employee-frontend/vite.config.ts
+````typescript
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+// https://vite.dev/config/
+export default defineConfig({
+  plugins: [react()],
+})
+````
+
+## File: .gitignore
+````
+# Dependencies
+node_modules/
+cafe-employee-frontend/node_modules/
+cafe-employee-api/node_modules/
+
+# Build outputs
+cafe-employee-frontend/dist/
+cafe-employee-frontend/.vite/
+cafe-employee-api/dist/
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+````
+
+## File: DEPLOYMENT_GUIDE.md
+````markdown
+# Deployment Guide - Cafe Employee Manager
+
+## Prerequisites
+- GitHub account (to connect repositories)
+- Render/Railway account (for backend)
+- Netlify account (for frontend)
+
+---
+
+## Step 1: Deploy Backend (API + Database)
+
+### Option A: Deploy to Render (Recommended - Free Tier Available)
+
+1. **Push your code to GitHub** (if not already done)
+   ```bash
+   cd cafe-employee-api
+   git init
+   git add .
+   git commit -m "Initial commit"
+   git remote add origin <your-repo-url>
+   git push -u origin main
+   ```
+
+2. **Create PostgreSQL Database on Render**
+   - Go to [render.com](https://render.com) and sign in
+   - Click "New +" → "PostgreSQL"
+   - Name: `cafe-db`
+   - Plan: Free
+   - Click "Create Database"
+   - **Copy the "Internal Database URL"** (starts with `postgresql://`)
+
+3. **Deploy API on Render**
+   - Click "New +" → "Web Service"
+   - Connect your GitHub repository
+   - Select the `cafe-employee-api` folder (or root if monorepo)
+   - Configure:
+     - **Name**: `cafe-employee-api`
+     - **Environment**: Node
+     - **Build Command**: `npm install && npm run prisma:generate && npm run build`
+     - **Start Command**: `npm start`
+   - Add Environment Variables:
+     - `DATABASE_URL` = (paste the Internal Database URL from step 2)
+     - `PORT` = `8080`
+   - Click "Create Web Service"
+
+4. **Run Database Migration**
+   - After deployment, go to your service's Shell tab
+   - Run: `npx prisma db push`
+   - Optional: Run seed data: `npm run seed`
+
+5. **Copy Your API URL**
+   - Your backend will be at: `https://cafe-employee-api.onrender.com`
+   - API endpoints will be at: `https://cafe-employee-api.onrender.com/api`
+
+---
+
+### Option B: Deploy to Railway (Alternative)
+
+1. **Go to [railway.app](https://railway.app)**
+2. Click "New Project" → "Deploy from GitHub repo"
+3. Select your repository
+4. Add PostgreSQL:
+   - Click "+ New" → "Database" → "Add PostgreSQL"
+   - Railway auto-connects it with `DATABASE_URL`
+5. Configure your service:
+   - **Build Command**: `npm install && npm run prisma:generate && npm run build`
+   - **Start Command**: `npm start`
+   - Add env var: `PORT=8080`
+6. Run migration in Railway's terminal: `npx prisma db push`
+7. Copy your API URL from Railway dashboard
+
+---
+
+## Step 2: Deploy Frontend
+
+1. **Update Frontend with Backend URL**
+   - Create `.env.production` in `cafe-employee-frontend/`:
+     ```
+     VITE_API_URL=https://your-backend-url.onrender.com/api
+     ```
+
+2. **Deploy to Netlify**
+   - Go to [netlify.com](https://netlify.com) and sign in
+   - Click "Add new site" → "Import an existing project"
+   - Connect GitHub and select your repository
+   - Configure:
+     - **Base directory**: `cafe-employee-frontend`
+     - **Build command**: `npm run build`
+     - **Publish directory**: `cafe-employee-frontend/dist`
+   - Add Environment Variable:
+     - `VITE_API_URL` = `https://your-backend-url.onrender.com/api`
+   - Click "Deploy site"
+
+3. **Your app is live!**
+   - Frontend: `https://your-site-name.netlify.app`
+   - Backend: `https://your-backend-url.onrender.com`
+
+---
+
+## Important Notes
+
+⚠️ **Render Free Tier**: Services spin down after 15 minutes of inactivity and may take 30-60 seconds to wake up.
+
+⚠️ **CORS**: The backend is already configured with CORS enabled for all origins. In production, you may want to restrict this.
+
+⚠️ **Database**: PostgreSQL free tier on Render expires after 90 days. Consider upgrading or using another provider for long-term hosting.
+
+---
+
+## Quick Deployment Commands
+
+```bash
+# Backend - Run after deploying to Render/Railway
+npx prisma db push
+npm run seed  # Optional: seed initial data
+
+# Frontend - Test production build locally
+npm run build
+npm run preview
+```
+
+---
+
+## Troubleshooting
+
+**Backend not connecting to database:**
+- Verify `DATABASE_URL` environment variable is set correctly
+- Check database is running and accessible
+- Run `npx prisma db push` in the deployment shell
+
+**Frontend shows CORS errors:**
+- Verify backend CORS is enabled (already configured in your code)
+- Check `VITE_API_URL` environment variable is set in Netlify
+
+**API returns 404:**
+- Ensure your backend routes are properly prefixed with `/api`
+- Check build logs for errors
+````
+
+## File: README.md
+````markdown
+# cafe-employee-manager
+GIC Submission
+````
+
+## File: test-api.html
+````html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API Test</title>
+</head>
+<body>
+    <h1>API Connection Test</h1>
+    <button onclick="testCafes()">Test Cafes API</button>
+    <button onclick="testEmployees()">Test Employees API</button>
+    <pre id="output"></pre>
+
+    <script>
+        async function testCafes() {
+            try {
+                const response = await fetch('http://localhost:8080/api/cafes');
+                const data = await response.json();
+                document.getElementById('output').textContent = 
+                    'Cafes:\n' + JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('output').textContent = 
+                    'Error: ' + error.message;
+            }
+        }
+
+        async function testEmployees() {
+            try {
+                const response = await fetch('http://localhost:8080/api/employees');
+                const data = await response.json();
+                document.getElementById('output').textContent = 
+                    'Employees:\n' + JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('output').textContent = 
+                    'Error: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>
+````
