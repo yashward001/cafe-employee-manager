@@ -15,7 +15,7 @@ COPY prisma ./prisma
 COPY . .
 
 # ---- Generate Prisma Client ----
-RUN npx prisma generate
+RUN node node_modules/prisma/build/index.js generate
 
 # ---- Build the app ----
 RUN npm run build

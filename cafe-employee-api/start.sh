@@ -2,7 +2,7 @@
 set -e
 
 echo "🔧 Running database migrations..."
-npx prisma db push --accept-data-loss
+node node_modules/prisma/build/index.js db push --accept-data-loss
 
 echo "📊 Seeding database (if needed)..."
 npm run seed || echo "⚠️ Seed failed or already seeded, continuing..."
