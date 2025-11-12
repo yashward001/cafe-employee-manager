@@ -8,14 +8,14 @@ RUN apk add --no-cache openssl
 
 # ---- Install ALL dependencies (including dev for build & seed) ----
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN npm ci && ls -la node_modules/.bin/ | grep prisma
 
 # ---- Copy source & prisma schema ----
 COPY prisma ./prisma
 COPY . .
 
 # ---- Generate Prisma Client ----
-RUN ls -la node_modules/.bin/ && npm run prisma:generate
+RUN npx prisma generate
 
 # ---- Build the app ----
 RUN npm run build
