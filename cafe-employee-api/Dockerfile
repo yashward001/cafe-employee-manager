@@ -8,7 +8,7 @@ RUN apk add --no-cache openssl
 
 # ---- Install ALL dependencies (including dev for build & seed) ----
 COPY package.json package-lock.json ./
-RUN npm ci && ls -la node_modules/.bin/ | grep prisma
+RUN npm ci
 
 # ---- Copy source & prisma schema ----
 COPY prisma ./prisma
@@ -18,7 +18,7 @@ COPY . .
 RUN node node_modules/prisma/build/index.js generate
 
 # ---- Build the app ----
-RUN npm run build
+RUN node node_modules/typescript/bin/tsc
 
 # ---- Keep tsx for seeding at runtime ----
 # Note: We keep dev deps to ensure tsx/esbuild work correctly for seeding
