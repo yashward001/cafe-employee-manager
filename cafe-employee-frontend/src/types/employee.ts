@@ -9,10 +9,11 @@ export interface Employee {
 }
 
 export interface EmployeePayload {
-  id: string;
+  id?: string;
   name: string;
   email: string;
   phone: string;
-  days_worked: number | string;
-  cafe?: string;
+  gender: "Male" | "Female";
+  startDate: string | null;
+  cafeId?: string | null;
 }
