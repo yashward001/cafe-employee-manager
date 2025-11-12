@@ -1,14 +1,14 @@
 # ---- Base image ----
-FROM node:22-bullseye
+FROM node:18.19.0-alpine
 
 WORKDIR /app
 
 # Install OS utilities for wait script
-RUN apt-get update && apt-get install -y netcat-openbsd && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache netcat-openbsd
 
 # ---- Install dependencies ----
 COPY package.json package-lock.json* ./
-RUN npm ci --no-audit
+RUN npm ci --omit=dev
 
 # ---- Copy source ----
 COPY . .
@@ -16,6 +16,9 @@ COPY . .
 # ---- Build the app ----
 RUN npm run build
 
-# ---- Start command ----
-# Always ensure dist exists before start (for extra safety)
-CMD ["/bin/sh", "-c", "if [ ! -d dist ]; then npm run build; fi && npm start"]
+# ---- Expose API port ----
+EXPOSE 8080
+
+# ---- Start server ----
+# Run migrations & seed AFTER container starts (when DB is reachable)
+CMD ["sh", "-c", "npx prisma migrate deploy && npx prisma db seed && npm start"]
