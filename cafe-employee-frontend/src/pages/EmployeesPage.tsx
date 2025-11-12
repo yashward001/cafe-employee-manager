@@ -4,7 +4,6 @@ import { getEmployees, createEmployee, updateEmployee, deleteEmployee } from "..
 import { EmployeeForm } from "../components/EmployeeForm";
 import { Spinner } from "../components/Spinner";
 import toast from "react-hot-toast";
-import { motion } from "framer-motion";
 import { Users } from "lucide-react";
 
 export const EmployeesPage = () => {
@@ -108,7 +107,7 @@ const onDelete = async (id: string) => {
 
   <div className="grid gap-6 md:grid-cols-2">
     {/* Left: Form */}
-    <motion.div className="card" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }}>
+    <div className="card">
       <h2 className="text-xl font-semibold mb-4">
         {editing ? "✏️ Edit Employee" : "➕ Create Employee"}
       </h2>
@@ -117,10 +116,10 @@ const onDelete = async (id: string) => {
         onSubmit={editing ? onUpdate : onCreate}
         onCancel={() => setEditing(null)}
       />
-    </motion.div>
+    </div>
 
     {/* Right: Table */}
-    <motion.div className="card overflow-x-auto" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.3 }}>
+    <div className="card overflow-x-auto">
       <h2 className="text-xl font-semibold mb-4">📋 All Employees</h2>
       {loading ? (
         <Spinner />
@@ -139,7 +138,7 @@ const onDelete = async (id: string) => {
           </thead>
           <tbody>
             {employees.map((e) => (
-              <motion.tr key={e.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} className="border-t">
+              <tr key={e.id} className="border-t">
                 <td className="font-mono text-xs">{e.id}</td>
                 <td>{e.name}</td>
                 <td>{e.email_address}</td>
@@ -162,12 +161,12 @@ const onDelete = async (id: string) => {
                     </button>
                   </div>
                 </td>
-              </motion.tr>
+              </tr>
             ))}
           </tbody>
         </table>
       )}
-    </motion.div>
+    </div>
   </div>
 </div>
   );

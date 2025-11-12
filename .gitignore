@@ -1,3 +1,22 @@
+# Dependencies
+node_modules/
 cafe-employee-frontend/node_modules/
+cafe-employee-api/node_modules/
+
+# Build outputs
 cafe-employee-frontend/dist/
 cafe-employee-frontend/.vite/
+cafe-employee-api/dist/
+
+# Environment variables
+.env
+.env.local
+.env.production
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

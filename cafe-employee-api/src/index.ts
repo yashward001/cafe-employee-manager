@@ -13,7 +13,7 @@ app.use(express.json());
 // ✅ Enable CORS before routes
 app.use(
   cors({
-    origin: "http://localhost:5174", // Frontend URL
+    origin: ["http://localhost:5173", "http://localhost:5174"], // Allow multiple frontend ports
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type"],
   })

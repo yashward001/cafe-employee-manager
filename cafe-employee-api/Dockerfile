@@ -1,24 +1,34 @@
 # ---- Base image ----
-FROM node:18.19.0-alpine
+FROM node:20-alpine
 
 WORKDIR /app
 
-# Install OS utilities for wait script
-RUN apk add --no-cache netcat-openbsd
+# ---- Install OpenSSL for Prisma ----
+RUN apk add --no-cache openssl
 
-# ---- Install dependencies ----
+# ---- Install ALL dependencies (including dev for build & seed) ----
 COPY package.json package-lock.json* ./
-RUN npm ci --omit=dev
+RUN npm ci
 
-# ---- Copy source ----
+# ---- Copy source & prisma schema ----
+COPY prisma ./prisma
 COPY . .
+
+# ---- Generate Prisma Client ----
+RUN npx prisma generate
 
 # ---- Build the app ----
 RUN npm run build
 
+# ---- Keep tsx for seeding at runtime ----
+# Note: We keep dev deps to ensure tsx/esbuild work correctly for seeding
+
 # ---- Expose API port ----
 EXPOSE 8080
 
+# ---- Copy startup script ----
+COPY start.sh ./
+RUN chmod +x start.sh
+
 # ---- Start server ----
-# Run migrations & seed AFTER container starts (when DB is reachable)
-CMD ["sh", "-c", "npx prisma migrate deploy && npx prisma db seed && npm start"]
+CMD ["./start.sh"]
