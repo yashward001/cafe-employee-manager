@@ -12,11 +12,12 @@ export const getEmployees = async (cafe?: string): Promise<Employee[]> => {
 export const createEmployee = async (data: EmployeePayload) => {
   // Map frontend form fields -> backend expected keys
   const payload = {
+    empCode: data.id,                        // Employee code
     name: data.name,
     email: data.email,
     phoneNumber: data.phone,
-    gender: data.gender || "U",              // optional: 'M', 'F', 'U'
-    startDate: new Date().toISOString(),     // backend requires startDate
+    gender: data.gender === "Male" ? "M" : "F",  // Backend expects M/F
+    startDate: data.startDate ? new Date(data.startDate).toISOString() : null,
     cafeId: data.cafeId || null              // null or UUID of an existing cafe
   };
 
@@ -30,11 +31,11 @@ export const createEmployee = async (data: EmployeePayload) => {
 export const updateEmployee = async (id: string, data: EmployeePayload): Promise<Employee> => {
   const payload = {
     name: data.name,
-    email: data.email,                 // ✅ match backend key
-    phoneNumber: data.phone,           // ✅ match backend key
-    gender: (data as any).gender ?? "U",
-    startDate: new Date().toISOString(),
-    cafeId: data.cafeId || null,         // ✅ backend expects cafeId
+    email: data.email,
+    phoneNumber: data.phone,
+    gender: data.gender === "Male" ? "M" : "F",  // Backend expects M/F
+    startDate: data.startDate ? new Date(data.startDate).toISOString() : null,
+    cafeId: data.cafeId || null,
   };
   const res = await api.put(`/employees/${id}`, payload);
   return res.data;
